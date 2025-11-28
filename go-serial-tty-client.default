@@ -1,0 +1,5 @@
+# Configuration for Go Serial TTY Client
+# Set arguments here. 
+# Example: ARGS="-addr ws.example.com:80 -port /dev/ttyUSB0 -baud 115200"
+
+ARGS="-addr localhost:8080 -port /dev/ttyUSB0 -baud 115200"
