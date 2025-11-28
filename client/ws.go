@@ -10,19 +10,23 @@ import (
 )
 
 type WSClient struct {
-	serverAddr string
-	deviceID   string
-	serialPort serial.Port
-	conn       *websocket.Conn
-	done       chan struct{}
+	serverAddr    string
+	deviceID      string
+	serialPort    serial.Port
+	conn          *websocket.Conn
+	done          chan struct{}
+	debug         bool
+	appendNewline bool
 }
 
-func NewWSClient(serverAddr, deviceID string, port serial.Port) *WSClient {
+func NewWSClient(serverAddr, deviceID string, port serial.Port, debug, appendNewline bool) *WSClient {
 	return &WSClient{
-		serverAddr: serverAddr,
-		deviceID:   deviceID,
-		serialPort: port,
-		done:       make(chan struct{}),
+		serverAddr:    serverAddr,
+		deviceID:      deviceID,
+		serialPort:    port,
+		done:          make(chan struct{}),
+		debug:         debug,
+		appendNewline: appendNewline,
 	}
 }
 
@@ -51,6 +55,9 @@ func (c *WSClient) Start() {
 				log.Println("WS read error:", err)
 				return
 			}
+			if c.debug {
+				log.Printf("[WS DEBUG] Read message (type %d): %q", mt, message)
+			}
 
 			// If binary, write directly to serial
 			// If text, we might want to log it or write it too depending on protocol
@@ -58,10 +65,22 @@ func (c *WSClient) Start() {
 			// Here we want to forward to serial.
 
 			if mt == websocket.BinaryMessage || mt == websocket.TextMessage {
-				_, err := c.serialPort.Write(message)
+				payload := message
+				if c.appendNewline {
+					payload = append(payload, []byte("\r\n")...)
+				}
+
+				if c.debug {
+					log.Printf("[WS DEBUG] Forwarding %d bytes to serial", len(payload))
+				}
+				_, err := c.serialPort.Write(payload)
 				if err != nil {
 					log.Println("Serial write error:", err)
 					return
+				}
+			} else {
+				if c.debug {
+					log.Printf("[WS DEBUG] Ignoring message type %d", mt)
 				}
 			}
 		}
@@ -97,6 +116,9 @@ func (c *WSClient) Start() {
 				// Actually, for a TTY, it's usually text.
 				// Let's send as BinaryMessage, it's more generic.
 
+				if c.debug {
+					log.Printf("[WS DEBUG] Writing message: %q", buffer[:n])
+				}
 				err = c.conn.WriteMessage(websocket.BinaryMessage, buffer[:n])
 				if err != nil {
 					log.Println("WS write error:", err)

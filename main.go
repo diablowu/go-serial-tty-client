@@ -22,6 +22,9 @@ func main() {
 	portPath := flag.String("port", "/dev/ttyUSB0", "Serial port path")
 	baud := flag.Int("baud", 115200, "Baud rate")
 	sim := flag.Bool("sim", false, "Enable simulation mode")
+	debugWS := flag.Bool("debug-ws", false, "Enable WebSocket debug logging")
+	debugSerial := flag.Bool("debug-serial", false, "Enable Serial debug logging")
+	appendNewline := flag.Bool("append-newline", false, "Append \\r\\n to incoming WebSocket messages")
 	flag.Parse()
 
 	log.Printf("Starting Serial TTY Client (ID: %s, Server: %s)", *id, *addr)
@@ -40,7 +43,11 @@ func main() {
 		}
 	}
 
-	wsClient := client.NewWSClient(*addr, *id, p)
+	if *debugSerial {
+		p = serial.NewDebugPort(p)
+	}
+
+	wsClient := client.NewWSClient(*addr, *id, p, *debugWS, *appendNewline)
 	if err := wsClient.Connect(); err != nil {
 		log.Fatalf("Failed to connect to WebSocket server: %v", err)
 	}
